@@ -1,5 +1,6 @@
 """The Twinkly platform for light component"""
 
+import datetime
 import logging
 from typing import Any, Optional
 import voluptuous as vol
@@ -65,6 +66,7 @@ class TwinklyLight(LightEntity):
         self._host = host
         self._base_url = "http://" + host + "/xled/v1/"
         self._token = None
+        self._last_auth = None
         self._session = session
 
         self._is_on = False
@@ -186,8 +188,7 @@ class TwinklyLight(LightEntity):
         self, endpoint: str, data: Any = None, retry: int = 1
     ) -> Any:
         """Send an authenticated request with auto retry if not yet auth."""
-        if self._token is None:
-            await self.auth()
+        await self.auth()
 
         try:
             response = await self._session.request(
@@ -208,6 +209,8 @@ class TwinklyLight(LightEntity):
 
     async def auth(self) -> None:
         """Authenticates to the device."""
+        if self._last_auth is not None or (datetime.datetime.now() - self._last_auth).seconds < 300:
+            return
         _LOGGER.info("Authenticating to '%s'", self._host)
 
         # Login to the device using a hard-coded challenge
@@ -233,3 +236,4 @@ class TwinklyLight(LightEntity):
         _LOGGER.debug("Sucessfully verified token to '%s'", self._host)
 
         self._token = token
+        self._last_auth = datetime.datetime.now()
